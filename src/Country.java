@@ -1,5 +1,7 @@
 import java.io.*;
-import java.util.ArrayList;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
 import java.util.Objects;
 
 abstract public class Country {
@@ -108,7 +110,64 @@ abstract public class Country {
         return new CountryColumns(startIndex,count);
     }
 
+    public void saveToDataFile(String path) {
+        DateTimeFormatter inputFormatter = DateTimeFormatter.ofPattern("M/d/yy");
+        DateTimeFormatter outputFormatter = DateTimeFormatter.ofPattern("d.MM.yy");
 
+        try (
+                BufferedReader brCases = new BufferedReader(new FileReader(pathCases));
+                BufferedReader brDeaths = new BufferedReader(new FileReader(pathDeaths));
+                BufferedWriter writer = new BufferedWriter(new FileWriter(path))
+        ) {
+            // Wczytanie nagłówków z obu plików (daty)
+            String headerCases = brCases.readLine();
+            String headerDeaths = brDeaths.readLine();
+            if (headerCases == null || headerDeaths == null) return;
+
+            String[] columns = headerCases.split(";");
+            int dateStartIndex = 4; // dane zaczynają się od 5 kolumny
+
+            // Inicjalizacja sum dla każdego dnia
+            int[] casesSums = null;
+            int[] deathsSums = null;
+            int dateCount = columns.length - dateStartIndex;
+
+            casesSums = new int[dateCount];
+            deathsSums = new int[dateCount];
+
+            // Sumowanie przypadków
+            String line;
+            while ((line = brCases.readLine()) != null) {
+                String[] values = line.split(";");
+                for (int i = 0; i < casesSums.length; i++) {
+                    casesSums[i] += Integer.parseInt(values[dateStartIndex + i]);
+                }
+            }
+
+            // Sumowanie zgonów
+            while ((line = brDeaths.readLine()) != null) {
+                String[] values = line.split(";");
+                for (int i = 0; i < deathsSums.length; i++) {
+                    deathsSums[i] += Integer.parseInt(values[dateStartIndex + i]);
+                }
+            }
+
+            // Zapis do pliku
+            for (int i = 0; i < dateCount; i++) {
+                try {
+                    LocalDate date = LocalDate.parse(columns[dateStartIndex + i], inputFormatter);
+                    String formattedDate = date.format(outputFormatter);
+                    writer.write(formattedDate + "\t" + casesSums[i] + "\t" + deathsSums[i]);
+                    writer.newLine();
+                } catch (DateTimeParseException e) {
+                    System.err.println("Niepoprawna data: " + columns[dateStartIndex + i]);
+                }
+            }
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 
     private static class CountryColumns{
         public final int firstColumndex;
